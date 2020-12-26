@@ -23,25 +23,52 @@ HUB75E 点阵屏是一块分辨率为 64*64，32 扫的点阵屏
 
 因为地址最多寻址 32， 所以最多也只能选中 32 个不同的地址， 但是想要填充 64 行， 只能一个地址代表两行才能达到控制整个屏幕的效果， 所以才有 32 扫，即地址 i 能够选中第 i 和第 i+32 行， 这样便能一次发送两行数据， 很好的解决了地址线不够的问题。
 
-### 点亮流程
+### 分析
+
+<img src="img/gimp_01.png" height=400>
+
+* 整个点阵屏分为上下两部分， 每部分 32 行。
+* 上半部分颜色数据线为 R1,G1, B1， 下半部分为 R2，G2，B2
+
+### 扫描一次
+
+例如扫描第 0x11 行和第 0x11 + 32 行
+
+* 填充 linebuffer，将 img 第 0x11 行填入 RGB1，第 0x11 + 32 行填入 RGB2.
+* 选中地址 0x11, 此时调用 set_addr 函数设置  A, B, C, D, E 选中 0x11。
+
+```c
+static inline void hub75e_set_addr(hub75e_t* hub75e_obj, uint8_t addr)
+{
+    my_set_gpiohs(hub75e_obj->a_gpio, addr & 0x01);
+    my_set_gpiohs(hub75e_obj->b_gpio, (addr & 0x02) >> 1);
+    my_set_gpiohs(hub75e_obj->c_gpio, (addr & 0x04) >> 2);
+    my_set_gpiohs(hub75e_obj->d_gpio, (addr & 0x08) >> 3);
+    my_set_gpiohs(hub75e_obj->e_gpio, (addr & 0x10) >> 4);
+}
+```
+
+### 点亮单个屏
 
 1. 需要准备一个 buf 来存储行数据， 单个点阵屏只需要 64 bytes即可， 每个 byte 需要其中 6 位来存储 rgb1 rgb2 的数据。
 2. 将数据通过 SPI 发送出去
 3. latch 脚拉
 4. latch 脚拉低
 5. 选中地址, 地址为 5 位, A B C D E 由低位到高位
-6. 使能 oe
+6. 拉高 OE 使能
 7. 返回步骤1, 循环直到所有地址都扫描了一次
-
-
 
 ## 多个点阵屏
 
-多个点阵屏刷新顺序根据其排列顺序而不同例如为 Z 字型排列，
+多个点阵屏刷新顺序根据其排列顺序而不同，这里使用为 S 型排列，以免使用太长的排线影响数据传输
 
 ### 点亮流程
 
+* todo
+
 ## display 代码
+
+* 写了注释，但是还是有些没有描述好， 近期补充图片说明
 
 ```c
 int hub75e_display(int core)
