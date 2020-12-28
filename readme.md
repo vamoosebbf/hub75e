@@ -90,7 +90,7 @@ int hub75e_display(int core)
     uint32_t *line_buffer = (uint32_t *)malloc(line_buf_size * sizeof(uint32_t));
     volatile spi_t *spi_handle = spi[hub75e_obj->spi];
     
-    // rgb565 -> rgb444
+    // rgb565 -> rgb444 损失色彩， 但是提高速率
     for (y = 0; y < hub75e_obj->height; y++)
     {
         for (x = 0; x < hub75e_obj->width; x++)
@@ -150,3 +150,9 @@ int hub75e_display(int core)
     return 0;
 }
 ```
+
+* 其中将 rgb565 转化为 rgb444 使用了查表方式，更快，该表运行 [convert.py](convert.py)生成， 共65536个元素。
+* 可以看到每张图屏片发送了 16(rgb444 中 2^4) 次， 这是为了控制 rgb 三个灯亮灭占空比达到形成多种颜色的效果，同样使用查表方式，运行 [convert.py](convert.py)生成。
+* 每张图刷新一次发送32次， 因为是32扫， 只需要发送32次即即可扫描所有屏
+
+**建议使用排线连接，信号更稳定，不过排线也有可能某根是坏的**
