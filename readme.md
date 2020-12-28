@@ -1,10 +1,10 @@
 # HUB75E 点阵屏的使用
 
-HUB75E 点阵屏是一块分辨率为 64*64，32 扫的点阵屏
+HUB75E 点阵屏是一块分辨率为 64*64，32 扫的点阵屏， 为了方便解释定义 SINGLE_WIDTH = 64 为单个屏幕的宽， SINGLE_HEIGHT = 64 位单个屏幕的高， SCAN_MODE = 32 为扫描模式
 
 ## 关于32扫
 
-32 扫即每刷新一次可第 i 行和第 i+32 行， 
+32 扫即选中 i 地址刷新的是第 i 行和第 i+SCAN_MODE 行， 这样刚好可以用 32 个地址刷新 64 行。
 
 ## 接口定义
 
@@ -12,7 +12,7 @@ HUB75E 点阵屏是一块分辨率为 64*64，32 扫的点阵屏
 
 * RGB1 和 RGB2 为数据接口， 代表了两行数据线
 * A, B, C, D, E 为地址接口， 最多可以表示32个地址
-* Latch
+* Latch 脚，不清楚有什么用
 * OE 为使能接口
 
 ## 单个点
@@ -21,21 +21,22 @@ HUB75E 点阵屏是一块分辨率为 64*64，32 扫的点阵屏
 
 ## 单个点阵屏
 
-因为地址最多寻址 32， 所以最多也只能选中 32 个不同的地址， 但是想要填充 64 行， 只能一个地址代表两行才能达到控制整个屏幕的效果， 所以才有 32 扫，即地址 i 能够选中第 i 和第 i+32 行， 这样便能一次发送两行数据， 很好的解决了地址线不够的问题。
+地址选中 0 开始， 每次点亮两行， 到地址为 SCAN_MODE 即可完成整块屏幕的刷新
 
 ### 分析
 
 <img src="img/gimp_01.png" height=400>
 
-* 整个点阵屏分为上下两部分， 每部分 32 行。
+* 整个点阵屏分为上下两部分， 每部分 SINGLE_HEIGHT/2 行。
 * 上半部分颜色数据线为 R1,G1, B1， 下半部分为 R2，G2，B2
 
 ### 扫描一次
 
-例如扫描第 0x11 行和第 0x11 + 32 行
+例如扫描第 0x11 行和第 0x11 + SCAN_MODE 行
 
-* 填充 linebuffer，将 img 第 0x11 行填入 RGB1，第 0x11 + 32 行填入 RGB2.
+* 填充 linebuffer，将 img 第 0x11 行填入 RGB1，第 0x11 + SCAN_MODE 行填入 RGB2.
 * 选中地址 0x11, 此时调用 set_addr 函数设置  A, B, C, D, E 选中 0x11。
+* 地址选中函数示例如下:
 
 ```c
 static inline void hub75e_set_addr(hub75e_t* hub75e_obj, uint8_t addr)
@@ -50,7 +51,7 @@ static inline void hub75e_set_addr(hub75e_t* hub75e_obj, uint8_t addr)
 
 ### 点亮单个屏
 
-1. 需要准备一个 buf 来存储行数据， 单个点阵屏只需要 64 bytes即可， 每个 byte 需要其中 6 位来存储 rgb1 rgb2 的数据。
+1. 需要准备一个长度为 SINGLE_WIDTH bytes 的 linebuf 来存储行数据， 每个 byte 其中 6 位来存储 rgb1(3bit) rgb2(3bit) 的数据， 这样刚好可以表示 i，i+SCAN_MODE 两行。
 2. 将数据通过 SPI 发送出去
 3. latch 脚拉
 4. latch 脚拉低
@@ -60,17 +61,24 @@ static inline void hub75e_set_addr(hub75e_t* hub75e_obj, uint8_t addr)
 
 ## 多个点阵屏
 
-多个点阵屏刷新顺序根据其排列顺序而不同，这里使用为 S 型排列，以免使用太长的排线影响数据传输
+### 分析
+
+1. 多个点阵屏可以看做时一个长度为：SINGLE_WIDTH*屏幕个数，高度为： SINGLE_HEIGHT 的长条形点阵屏
+2. 该点阵屏上半部分颜色由 RGB1 控制，下半部分由 RGB2 控制。
+3. 长条形点阵屏弯折即可拓展成高度大于 64 的矩阵屏，如图所示:
+4. 这样做只是重新排列了一次而已，控制方式仍然是以单个长条型点阵屏控制，只是需要注意发送数据的顺序
+
+<img src="img/gimp_02.png">
 
 ### 点亮流程
 
-* todo
+这个随摆放方式不同而不同， 我使用的是 S 型摆放， 这里有一个问题是第偶数行点阵屏会是倒过来的， 总之先发送的肯定是排在最后的点阵屏, 以下图为例就是右下角那块。
 
-## display 代码
+<img src="img/gimp_03.png">
 
-* 写了注释，但是还是有些没有描述好， 近期补充图片说明
+以上排列方式代码如下：
 
-```c
+```C
 int hub75e_display(int core)
 {
     if(!(hub75e_obj&&image)) return -1;
@@ -125,7 +133,7 @@ int hub75e_display(int core)
                     int img_line_begin = img_line_num * hub75e_obj->width;
                     // 填入 linebuffer 的 img 行加 32 扫
                     int img_line_scan_begin = (img_line_num + SCAN_TIMES) * hub75e_obj->width;
-                    // 显示第 bs 块板的第 y 行
+                    // 显示第 bs 行板的第 y 行
                     for(int  x = 0; x < hub75e_obj->width; x++)
                     {
                         // 编码每行的点，高三位: 7(r1),6(g1),5(b1)为第 img_line_num 行), 后三位: 4(r2),3(g2),2(b2) 为第 img_line_num + SCAN_TIMES 行)

@@ -1,11 +1,3 @@
-# Hello World Example
-#
-# Welcome to the MaixPy IDE!
-# 1. Conenct board to computer
-# 2. Select board at the top of MaixPy IDE: `tools->Select Board`
-# 3. Click the connect buttion below to connect board
-# 4. Click on the green run arrow button below to run the script!
-
 import sensor, image, time,lcd
 from modules import hub75e
 from fpioa_manager import fm
@@ -66,7 +58,6 @@ tim = Timer(Timer.TIMER0, Timer.CHANNEL0, mode=Timer.MODE_PERIODIC,
                     period=30, unit=Timer.UNIT_MS, callback=on_timer, arg = on_timer, start=True, priority=1, div=0)
                     
 #lcd.init(freq=15000000)
-#clock.tick()                    # Update the FPS clock
 print(img)
 while True:
     # lcd.display(img)                # Display on LCD
@@ -74,5 +65,4 @@ while True:
       show.display(img)
     except Exception as e:
         print(e)
-    #time.sleep(10)
     #show.stop()
