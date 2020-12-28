@@ -106,7 +106,7 @@ int hub75e_display(int core)
         // 32 扫, 每次将 y 和 y+32 行填入 linebuffer       
         for (y = 0; y < SCAN_TIMES; y++)
         {
-            // 每次发送一个 linebuffer ， linebuffer 大小为 每块的行宽*一行的块数*竖直的板子数
+            // 每次发送一个 linebuffer ， linebuffer 大小为 每块的行宽*屏幕块数
             for (int bs = vertical_boards; bs  > 0; bs--)//刷新第 bs 行的板子， 板子总行数为 vertical_boards
             {
                 // line_buffer 填充起点
